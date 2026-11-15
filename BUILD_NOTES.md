@@ -69,6 +69,20 @@ Top 5 by the model:
   switches as in earlier make.fun captures).
 - board.json: 197 rows, 304 KB; data.js 56 KB (not part of the dossier text).
 
+## Kit check status (2026-11-15, local, this kit's CLI)
+
+`node cli/makefun.mjs check --kit <kit> --repo . --commit d1df7aa --transcripts
+radar01-bundle.tar.gz`: **11 passed, 1 failed, 6 skipped, 5 checked at submission.**
+Every entry-content and transcript check passes (present, recorded, wellformed,
+in_window, reproduces 46.9% of counted lines, 42 turns, revised). The one failure is
+`thinking_priced`: the building session is a subagent session whose Muse usage rows
+are written to muse.db only when its run completes, so the bundle carried 0 rows.
+Per the check's own fix text, the top-level agent finishes this after the subagent
+completes: run the bundle --help SELECT with agent ids d91b2044-8fd7-47bc-aeb5-41da48561a02
+(parent) and 9657aa1d-3ca2-4fd3-91cd-80e8ef9b5aeb (builder), write the rows to a usage
+file, re-bundle with --session for both sessions and --muse-usage <file>, re-check.
+Nothing in the entry itself needs rebuilding for that step.
+
 ## Open risks / known weaknesses
 
 - Thin peer sets at the top: Risk Curators (the top category by implied value) has a
