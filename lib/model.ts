@@ -13,6 +13,11 @@
 //                (n x category median + 5 x global median) / (n + 5); a category with no peers
 //                takes the global median outright. The 25th and 75th percentiles shrink the same
 //                way and give the row's value range.
+//   pooling    = a category with fewer than pool_min_peers peers does not stand on that handful
+//                alone: if it belongs to a family of categories that run the same business
+//                (PEER_FAMILIES below), its evidence is the family's pooled peer set, shrunk
+//                the same way, and the row says so. One name can no longer carry a category:
+//                in peer-multiple-2 the board's top three rows rested on a single peer.
 //   momentum   = clamp(1 + (change_7d - category median change_7d) x 0.006, 0.80, 1.30)
 //   breadth    = 1 + 0.03 x min(chains - 1, 10)
 //   maturity   = 0.85 + 0.30 x min(age_days, 1095) / 1095   (age unknown: 365 days)
@@ -48,6 +53,7 @@ export interface ModelConstants {
   ratio_floor: number;
   ratio_cap: number;
   shrink_k: number;
+  pool_min_peers: number;
   momentum_weight: number;
   momentum_floor: number;
   momentum_cap: number;
@@ -63,6 +69,7 @@ export const MODEL: ModelConstants = {
   ratio_floor: 0.02,
   ratio_cap: 4,
   shrink_k: 5,
+  pool_min_peers: 4,
   momentum_weight: 0.006,
   momentum_floor: 0.8,
   momentum_cap: 1.3,
@@ -75,7 +82,24 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'peer-multiple-2';
+export const MODEL_VERSION = 'peer-multiple-3';
+
+/**
+ * Families of categories that run the same business, so a thin category's price of TVL is read
+ * from the family's pooled market evidence instead of one or two names. Membership is by what
+ * the business does with capital, never by a protocol's name: curators and allocators manage
+ * other people's yield, staking services run validators, stablecoin issuers mint against
+ * collateral, derivatives venues take margin, credit markets lend, payment apps move money.
+ * A category in no family stands on its own peers, however few, shrunk as before.
+ */
+export const PEER_FAMILIES: { name: string; categories: string[] }[] = [
+  { name: 'managed yield', categories: ['Risk Curators', 'Onchain Capital Allocator', 'Yield', 'Yield Aggregator', 'Liquidity Manager', 'Leveraged Farming'] },
+  { name: 'staking services', categories: ['Staking Pool', 'Restaking', 'Liquid Restaking', 'Liquid Staking'] },
+  { name: 'stablecoin issuance', categories: ['CDP', 'CDP Manager', 'Dual-Token Stablecoin', 'Stablecoin Wrapper', 'Stablecoin Issuer', 'Algo-Stables'] },
+  { name: 'derivatives venues', categories: ['Derivatives', 'Interest Rate Derivatives', 'Options', 'Options Vault', 'Synthetics'] },
+  { name: 'credit markets', categories: ['Lending', 'Uncollateralized Lending', 'Collateral Markets'] },
+  { name: 'payments', categories: ['Payments', 'Crypto Card Issuer'] },
+];
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -153,6 +177,8 @@ export interface CategoryStats {
   ratio_hi: number;
   median_change_7d: number | null;
   top_peers: { name: string; ratio: number }[];
+  /** The family this evidence was pooled across, or null when the category stands on its own peers. */
+  family: string | null;
 }
 
 /** The peer evidence base the model derives from one snapshot. */
@@ -194,24 +220,43 @@ export function buildPeerBase(snapshot: Snapshot, model: ModelConstants = MODEL)
 
   const categories = new Map<string, CategoryStats>();
   const shrink = (catQ: number, globalQ: number, n: number): number => (n * catQ + model.shrink_k * globalQ) / (n + model.shrink_k);
-  for (const [key, list] of byCategory) {
+  /** The shrunk evidence of one peer list: its percentiles against the global ones, by its count. */
+  const statsFrom = (key: string, list: SnapshotProtocol[], changes: number[], family: string | null): CategoryStats => {
     const ratios = list.map(winsor).sort((a, b) => a - b);
     const n = list.length;
-    const catChanges = (changeByCategory.get(key) ?? []).slice().sort((a, b) => a - b);
-    categories.set(key, {
+    const sortedChanges = changes.slice().sort((a, b) => a - b);
+    return {
       category: key,
       peers: n,
       raw_median: percentile(ratios, 0.5),
       ratio: shrink(percentile(ratios, 0.5), globalMedian, n),
       ratio_lo: shrink(percentile(ratios, 0.25), globalLo, n),
       ratio_hi: shrink(percentile(ratios, 0.75), globalHi, n),
-      median_change_7d: catChanges.length > 0 ? percentile(catChanges, 0.5) : null,
+      median_change_7d: sortedChanges.length > 0 ? percentile(sortedChanges, 0.5) : null,
       top_peers: list
         .slice()
         .sort((a, b) => b.mcap_usd! - a.mcap_usd!)
         .slice(0, 4)
         .map((p) => ({ name: p.name, ratio: round4(winsor(p)) })),
-    });
+      family,
+    };
+  };
+  for (const [key, list] of byCategory) {
+    categories.set(key, statsFrom(key, list, changeByCategory.get(key) ?? [], null));
+  }
+  // Pooling: a family member with fewer than pool_min_peers peers of its own is re-based on the
+  // family's pooled peer set when the pool is deeper than its own handful. Members with a deep
+  // set of their own keep it; a member whose family adds nothing keeps its own stats too.
+  for (const fam of PEER_FAMILIES) {
+    const pooled = fam.categories.flatMap((c) => byCategory.get(c) ?? []);
+    if (pooled.length === 0) continue;
+    const pooledChanges = fam.categories.flatMap((c) => changeByCategory.get(c) ?? []);
+    for (const key of fam.categories) {
+      const own = byCategory.get(key)?.length ?? 0;
+      if (own < model.pool_min_peers && pooled.length > own) {
+        categories.set(key, statsFrom(key, pooled, pooledChanges, fam.name));
+      }
+    }
   }
   return { peer_count: peers.length, global_median: globalMedian, global_lo: globalLo, global_hi: globalHi, global_median_change_7d: globalChange, categories };
 }
@@ -229,6 +274,7 @@ function statsFor(base: PeerBase, category: string | null): CategoryStats {
     ratio_hi: base.global_hi,
     median_change_7d: base.global_median_change_7d,
     top_peers: [],
+    family: null,
   };
 }
 
@@ -241,6 +287,7 @@ export interface Valuation {
   ratio_lo: number;
   ratio_hi: number;
   peers: number;
+  family: string | null;
   momentum: number;
   breadth: number;
   maturity: number;
@@ -266,6 +313,7 @@ export function valueProtocol(p: SnapshotProtocol, asOf: string, base: PeerBase,
     ratio_lo: stats.ratio_lo,
     ratio_hi: stats.ratio_hi,
     peers: stats.peers,
+    family: stats.family,
     momentum,
     breadth,
     maturity,
@@ -299,6 +347,7 @@ export interface BoardRow {
   model: {
     peer_category: string;
     peer_count: number;
+    peer_family: string | null;
     ratio_used: number;
     ratio_lo: number;
     ratio_hi: number;
@@ -395,6 +444,7 @@ export function buildBoard(snapshot: Snapshot, base: PeerBase, model: ModelConst
     model: {
       peer_category: s.p.category ?? '',
       peer_count: s.v.peers,
+      peer_family: s.v.family,
       ratio_used: round4(s.v.ratio),
       ratio_lo: round4(s.v.ratio_lo),
       ratio_hi: round4(s.v.ratio_hi),

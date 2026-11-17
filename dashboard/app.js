@@ -227,7 +227,7 @@
     return el('section', { class: 'lede' },
       el('div', null,
         el('h1', null, DATA.watchlist_size + ' watchlist protocols and ' + DATA.early_size + ' early finds, ranked by ', el('em', { text: 'implied launch value' })),
-        el('p', { text: 'Every protocol here records no token yet and is not a wrapped, staked, bridged or exchange product of one that trades. Its implied value is what a launch would be worth if tokenised peers in its own category are the guide: their market cap per dollar of TVL, applied to its TVL and adjusted for momentum, chain breadth and time run with no token. A model, not a promise.' })
+        el('p', { text: 'Every protocol here records no token yet and is not a wrapped, staked, bridged or exchange product of one that trades. Its implied value is what a launch would be worth if tokenised peers in its own category are the guide: their market cap per dollar of TVL, applied to its TVL and adjusted for momentum, chain breadth and time run with no token. Where a category has too few peers of its own, the guide is its family of like businesses, pooled. A model, not a promise.' })
       ),
       el('div', { class: 'facts' },
         el('div', { class: 'fact' }, el('span', { text: 'Watchlist covered' }), el('b', { text: DATA.watchlist_size + ' / ' + DATA.watchlist_size })),
@@ -363,7 +363,7 @@
     var tbody = el('tbody');
     DATA.categories.forEach(function (c) {
       tbody.appendChild(el('tr', null,
-        el('td', { text: c.category }),
+        el('td', { text: c.family ? c.category + ' (pooled: ' + c.family + ')' : c.category }),
         el('td', { class: 'num', text: String(c.peers) }),
         el('td', { class: 'num', text: fmtRatio(c.raw_median) }),
         el('td', { class: 'num', text: fmtRatio(c.ratio) }),
@@ -372,7 +372,7 @@
     });
     return el('section', { class: 'panel model' },
       el('h2', { text: 'How implied value is computed' }),
-      el('p', { class: 'sub', text: 'The guide is the market itself: ' + DATA.peer_count + ' protocols in this snapshot already trade, so each one prices a dollar of TVL in its category. A candidate is valued at its own category\'s price of TVL, shrunk toward the global median (' + fmtRatio(DATA.global.median) + ') when the category\'s peer set is thin, then adjusted for the protocol\'s own record. No protocol name is special-cased, and no row is hand-picked.' }),
+      el('p', { class: 'sub', text: 'The guide is the market itself: ' + DATA.peer_count + ' protocols in this snapshot already trade, so each one prices a dollar of TVL in its category. A candidate is valued at its own category\'s price of TVL, shrunk toward the global median (' + fmtRatio(DATA.global.median) + ') when the category\'s peer set is thin, then adjusted for the protocol\'s own record. No protocol name is special-cased, and no row is hand-picked. A category with fewer than ' + M.pool_min_peers + ' peers of its own never stands on that handful alone: it is priced from its family — the categories that run the same business (managed yield, staking services, stablecoin issuance, derivatives venues, credit markets, payments) — pooled and shrunk the same way, and the table and the row both say which family carried it.' }),
       el('div', { class: 'formula', text: 'implied = round( tvl x shrunk_median(mcap/tvl of category peers) x momentum x breadth x maturity )' }),
       el('p', { class: 'sub', text: 'Momentum compares the protocol\'s 7d TVL change with its category\'s median (weight ' + M.momentum_weight + ', clamped ' + M.momentum_floor + ' to ' + M.momentum_cap + '). Breadth adds ' + (M.breadth_per_chain * 100) + '% per extra chain, up to 10. Maturity runs ' + M.maturity_floor + ' to ' + (M.maturity_floor + M.maturity_range) + ' over the first ' + M.maturity_days + ' days the protocol has run with no token. Peer ratios are winsorised to [' + M.ratio_floor + ', ' + M.ratio_cap + '] and shrunk with k = ' + M.shrink_k + ': (n x category + k x global) / (n + k).' }),
       el('div', { class: 'table-wrap' },
@@ -389,6 +389,7 @@
   dialog.addEventListener('close', function () { state.selected = null; writeHash(); });
 
   function confidence(st) {
+    if (st.family) return 'Pooled peer set: ' + st.peers + ' tokenised peers across the ' + st.family + ' family price this row, because its own category has fewer than ' + M.pool_min_peers + ' tokenised peers of its own. No single name carries the ratio.';
     if (st.peers >= 8) return 'Broad peer set: ' + st.peers + ' tokenised peers price this category, so the ratio rests on a market, not a name.';
     if (st.peers >= 3) return 'Moderate peer set: ' + st.peers + ' tokenised peers, shrunk toward the global median.';
     if (st.peers >= 1) return 'Thin peer set: only ' + st.peers + ' tokenised peer' + (st.peers === 1 ? '' : 's') + ' in this category, so the ratio leans on the global median. Treat this value with care.';
@@ -433,10 +434,10 @@
       el('h3', { text: 'Peer evidence' }),
       st.peers > 0
         ? el('table', { class: 'peers' },
-            el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Largest tokenised peers in ' + (row.c || 'this category') }), el('th', { scope: 'col', class: 'num', text: 'mcap / TVL' }))),
+            el('thead', null, el('tr', null, el('th', { scope: 'col', text: st.family ? 'Largest tokenised peers in the ' + st.family + ' family' : 'Largest tokenised peers in ' + (row.c || 'this category') }), el('th', { scope: 'col', class: 'num', text: 'mcap / TVL' }))),
             peerBody)
         : el('p', { class: 'sub', text: 'No tokenised protocol in this category carries both a market cap and a TVL in the snapshot.' }),
-      el('p', { class: 'sub', text: 'Category peers: ' + st.peers + '. Raw median ' + fmtRatio(st.raw_median) + ', shrunk to ' + fmtRatio(st.ratio) + ' against the global median ' + fmtRatio(DATA.global.median) + ' (range ' + fmtRatio(st.ratio_lo) + ' - ' + fmtRatio(st.ratio_hi) + ').' }),
+      el('p', { class: 'sub', text: (st.family ? 'Peer evidence: ' + st.peers + ' tokenised peers pooled across the ' + st.family + ' family. ' : 'Category peers: ' + st.peers + '. ') + 'Raw median ' + fmtRatio(st.raw_median) + ', shrunk to ' + fmtRatio(st.ratio) + ' against the global median ' + fmtRatio(DATA.global.median) + ' (range ' + fmtRatio(st.ratio_lo) + ' - ' + fmtRatio(st.ratio_hi) + ').' }),
       el('div', { class: 'note', text: confidence(st) })
     ));
     var steps = farmSteps(row);

@@ -2,6 +2,35 @@
 
 Local build only. Nothing submitted, no GitHub repo created. Deadline: 2026-12-14T10:00Z.
 
+## v2 (2026-11-18) — family pooling for thin peer sets (model peer-multiple-3)
+
+One change, against the weakness v1's notes flagged first: thin peer sets at the top.
+There is no local grade for this competition (the server grades every entry), so the
+change was gated on diagnostics run against the model's own code, before vs after:
+
+- Thin exposure: rows valued on 2 or fewer tokenised peers fell from 102 of 197 (51.8%)
+  to 19 (9.6%); in the top 20, from 15 rows to 3. The remaining thin rows are Chain and
+  Prediction Market, which have no sibling business to pool with, plus Payments (2).
+- Leave-one-out fragility: deleting Api3 — in v1 the sole Risk Curators peer behind
+  ranks 1–3 — swung the worst row's implied value by 228.9%; under v2 it swings 4.4%.
+  Peers whose removal swings any row by more than 50%: 12 of 128 in v1, 10 in v2 (the
+  worst remaining case is Rain, the only Prediction Market peer; no family exists for it).
+- The change: a category with fewer than `pool_min_peers` (4) peers of its own is priced
+  from its family's pooled peer set (PEER_FAMILIES in lib/model.ts: managed yield,
+  staking services, stablecoin issuance, derivatives venues, credit markets, payments),
+  shrunk toward the global median exactly as a category set is. Membership is by what the
+  business does, never by a protocol's name. 57 rows now rest on the 18-peer managed-yield
+  pool; the top of the board is Steakhouse Financial ($664M), Sentora Curator ($551M),
+  Gauntlet ($398M), Veda ($373M) — the same names, on 18 peers instead of 1–2.
+- Dashboard text states the pooling wherever it applies (lede, method panel, category
+  table, detail peer evidence and confidence note); screenshots recaptured from the new
+  build at 1440x900 (183 KB board, 203 KB detail, 186 KB filtered), no console errors,
+  and the detail view's in-page recompute still matches board.json to the dollar.
+- Gate shape re-verified on the new output: 197 rows, watchlist 40/40, ranks exactly
+  1..197, implied values non-increasing by rank, every farm step 20–600 characters,
+  dashboard source 39,087 bytes (under the 65,536 dossier text cap), dossier.json
+  804,266 bytes (under 1.5 MiB), two consecutive runs byte-identical.
+
 ## Snapshot stats (input/snapshot.json, as_of 2026-11-14)
 
 - 758 protocols at or above $5M TVL; watchlist floor $50M; watchlist = 40 protocols.
