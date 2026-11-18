@@ -2,6 +2,45 @@
 
 Local build only. Nothing submitted, no GitHub repo created. Deadline: 2026-12-14T10:00Z.
 
+## v3 (2026-11-18) — Prediction Market joins the derivatives family (model peer-multiple-4)
+
+One change, against the weakness v2's notes named first: Rain was the worst remaining
+single-peer case, and it carried the board's #5 row. Prediction Market joins the
+'derivatives venues' family — renamed 'derivatives & prediction venues', since a
+prediction market is a venue where users take positions on future outcomes, the same
+business as a derivatives venue (positions on future prices, margin-like collateral,
+venue fees). Membership is still by what the business does, never by a name.
+
+- Polymarket International: rank 5 → 3, implied $311M → $417M, peers 1 → 4 pooled
+  (Rain 4.000x winsorised, Veranta 2.947x, Hegic 1.514x, Gains Network 1.376x).
+  Raw pooled median 2.231x, shrunk to 1.110x against the global median 0.214x.
+  Rain's 4.000x is the top value of the four, not a middle value, so it does not
+  drive the pooled median.
+- Same change, measured side effect: Derivatives itself had only 3 peers, so its
+  pooled set went 3 → 4 as well — 13 Derivatives / Interest Rate Derivatives rows
+  re-base (ratio 0.7016 → 1.1103, implied +58%), and predict-fun (Prediction Market)
+  goes 1 → 4 peers, rank 67 → 56. 15 rows changed implied value; 105 rows shifted
+  rank, most by displacement only with values unchanged.
+- Thin exposure: rows valued on 2 or fewer peers 19 → 17 (9.6% → 8.6%); in the top
+  20, 3 → 2 (hive-protocol, noble — Chain, which has no sibling business to pool
+  with and stays thin honestly).
+- Leave-one-out fragility: peers whose removal swings any row by more than 50%:
+  10 → 9 (Rain out). Removing Rain swung Polymarket 74.7% in v2 ($311M → $79M);
+  in v3 its worst swing anywhere is 37.3% (hertzflow; Polymarket $417M → $262M).
+- Remaining worst LOO is unchanged: Enzyme / Index Coop swing set-protocol 151.6%
+  (Indexes, 3 peers, no family) — but only $1.8M of implied value is at stake.
+  The Dexs cases (~122% on xrpl-dex with 11 peers) are a median discontinuity from
+  bimodal peer ratios, not thinness, and no family change addresses them.
+- Gate shape re-verified on the new output: 197 rows, watchlist 40/40, ranks exactly
+  1..197, implied values non-increasing by rank, dashboard source 39,100 bytes
+  (under the 65,536 dossier text cap), dossier.json 804,279 bytes (under 1.5 MiB),
+  two consecutive runs byte-identical.
+- Screenshots recaptured from the new build at 1440x900 (187 KB board, 206 KB detail,
+  190 KB filtered), no page or console errors (the one 404 in the capture log is the
+  browser's own /favicon.ico, not a page resource). The detail shot is Polymarket
+  International this time — the row the change re-bases — and its in-page recompute
+  still matches board.json to the dollar ($417.4M).
+
 ## v2 (2026-11-18) — family pooling for thin peer sets (model peer-multiple-3)
 
 One change, against the weakness v1's notes flagged first: thin peer sets at the top.
@@ -51,7 +90,7 @@ change was gated on diagnostics run against the model's own code, before vs afte
 - 24 live-token protocols are set aside in the dashboard's Live token view with their
   market caps shown as fact, never ranked as farm targets.
 
-## Valuation model (lib/model.ts, version peer-multiple-2)
+## Valuation model (lib/model.ts, version peer-multiple-4)
 
 Derived entirely from the snapshot's own figures; no protocol name is special-cased.
 
@@ -114,12 +153,15 @@ Nothing in the entry itself needs rebuilding for that step.
 
 ## Open risks / known weaknesses
 
-- Thin peer sets at the top: Risk Curators (the top category by implied value) has a
-  single tokenised peer (Api3, 2.975x winsorised), and Onchain Capital Allocator has 2.
-  Shrinkage (k = 5) pulls those ratios most of the way to the global median and the
-  dashboard flags them as thin, but the top of the board still leans on very little
-  market evidence. A v2 could pool sibling categories (curators + allocators + yield)
-  into a combined peer set when n < 3.
+- Thin peer sets at the top: v3 pooled Prediction Market into the derivatives &
+  prediction venues family, so the top-5 row now rests on 4 peers instead of one.
+  What stays thin: Chain (1 peer, no sibling business to pool with — hive-protocol
+  and noble still lean on Astar dApps Staking alone), Indexes (3 peers, no family;
+  worst LOO swing 151.6% but only a $1.8M row), Payments (2 peers; its family adds
+  nothing, since Crypto Card Issuer has no peers of its own). Dexs shows a median
+  discontinuity instead of thinness: removing one of its 11 peers swings xrpl-dex
+  ~122%, because the peer ratios are bimodal around the median — no family change
+  addresses that; a different estimator would be a new model version, not a tweak.
 - The momentum term compares against the category median change; in a week when the
   whole snapshot fell (global median change_7d is −8.2%), "least bad" protocols earn a
   premium that is relative, not absolute growth. Stated in the methodology panel.

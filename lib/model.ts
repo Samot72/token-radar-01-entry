@@ -82,21 +82,22 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'peer-multiple-3';
+export const MODEL_VERSION = 'peer-multiple-4';
 
 /**
  * Families of categories that run the same business, so a thin category's price of TVL is read
  * from the family's pooled market evidence instead of one or two names. Membership is by what
  * the business does with capital, never by a protocol's name: curators and allocators manage
  * other people's yield, staking services run validators, stablecoin issuers mint against
- * collateral, derivatives venues take margin, credit markets lend, payment apps move money.
+ * collateral, derivatives and prediction venues take positions on future outcomes,
+ * credit markets lend, payment apps move money.
  * A category in no family stands on its own peers, however few, shrunk as before.
  */
 export const PEER_FAMILIES: { name: string; categories: string[] }[] = [
   { name: 'managed yield', categories: ['Risk Curators', 'Onchain Capital Allocator', 'Yield', 'Yield Aggregator', 'Liquidity Manager', 'Leveraged Farming'] },
   { name: 'staking services', categories: ['Staking Pool', 'Restaking', 'Liquid Restaking', 'Liquid Staking'] },
   { name: 'stablecoin issuance', categories: ['CDP', 'CDP Manager', 'Dual-Token Stablecoin', 'Stablecoin Wrapper', 'Stablecoin Issuer', 'Algo-Stables'] },
-  { name: 'derivatives venues', categories: ['Derivatives', 'Interest Rate Derivatives', 'Options', 'Options Vault', 'Synthetics'] },
+  { name: 'derivatives & prediction venues', categories: ['Derivatives', 'Interest Rate Derivatives', 'Options', 'Options Vault', 'Synthetics', 'Prediction Market'] },
   { name: 'credit markets', categories: ['Lending', 'Uncollateralized Lending', 'Collateral Markets'] },
   { name: 'payments', categories: ['Payments', 'Crypto Card Issuer'] },
 ];
